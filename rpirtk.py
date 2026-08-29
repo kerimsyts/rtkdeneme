@@ -51,6 +51,8 @@ try:
         # 1. ESP'den Gelen RTCM'i Oku ve Yönlendir (Hızlı okuma için güncellendi)
         if esp_serial.in_waiting > 0:
             raw_rtcm_data = esp_serial.read(min(esp_serial.in_waiting, 180))
+
+            print(f"Havadan {len(raw_rtcm_data)} byte geldi!")
             
             chunk_size = 180
             padded_chunk = bytearray(raw_rtcm_data)
