@@ -49,6 +49,7 @@ try:
             
             # Veriyi 180 byte'lık MAVLink standardına uydur ama DOLDURMA! (Flags ile yönet)
             data_len = len(raw_data)
+            print(f"Havadan {data_len} byte geldi ve MAVLink'e basılıyor...")
             flags = 0  # Parçalanma bayrağı (şimdilik 0, basit yollama)
             
             # Sequence ID 0-31 arası sürekli döner
