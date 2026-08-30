@@ -2,9 +2,9 @@ import serial
 import time
 from pymavlink import mavutil
 import os
+import base64
 
 ESP_PORT = '/dev/ttyUSB0'
-# espbaud921600 imiş, bu değere sadık kalıyoruz.
 ESP_BAUD = 921600
 CUBE_PORT = '/dev/ttyACM0'
 CUBE_BAUD = 115200
@@ -22,7 +22,8 @@ except Exception as e:
 print(f"ESP32'ye bağlanılıyor ({ESP_PORT})...")
 try:
     esp_serial = serial.Serial(ESP_PORT, ESP_BAUD, timeout=0.1)
-    print("-> ESP bağlantısı başarılı.")
+    esp_serial.reset_input_buffer()
+    print("-> ESP bağlantısı başarılı. Temiz RTK akışı bekleniyor...")
 except Exception as e:
     print(f"ESP hatası: {e}")
     exit()
@@ -34,27 +35,36 @@ print("\n--- Sistem Dinlemede ---")
 
 try:
     while True:
-        # ESP'den gelenleri oku (Maksimum 180 byte alabiliriz)
+        # C++ kodu veriyi satır satır (\n) yolladığı için readline kullanıyoruz
         if esp_serial.in_waiting > 0:
-            raw_data = esp_serial.read(min(esp_serial.in_waiting, 180))
-            data_len = len(raw_data)
-            
-            sequence_id = (sequence_id + 1) % 32
-            
-            # PyMAVLink, list() dizisinin tam 180 eleman olmasını zorunlu kılar
-            padded_data = bytearray(raw_data)
-            if len(padded_data) < 180:
-                padded_data.extend([0] * (180 - data_len))
-            
-            # Veriyi Cube Orange'a gönder (data_len ile sadece dolu kısmı işleme almasını sağlıyoruz)
-            master.mav.gps_rtcm_data_send(
-                (sequence_id << 3), # Flags: parçalanma yok, sequence ID ekli
-                data_len,           # Uçağa bildirilen GERÇEK veri boyutu
-                list(padded_data)   # 180 byte'lık dizi kalıbı
-            )
-            
-            # Ekranda senin istediğin dinamik gösterim
-            print(f"Havadan {data_len} Byte geldi ve MAVLink'e basıldı!")
+            try:
+                line = esp_serial.readline().decode('ascii', errors='ignore').strip()
+                
+                # GELEN VERİ BİZİM RTK VERİMİZ Mİ YOKSA DRONE TELEMETRİSİ Mİ?
+                if line.startswith("RTK:"):
+                    # "RTK:" başlığını ve "*xxxxxxxx" şifresini at, ortadaki veriyi al
+                    b64_part = line.split("*")[0][4:]
+                    
+                    # Metni tekrar orjinal RAW RTCM bytelarına çevir
+                    raw_rtcm = base64.b64decode(b64_part)
+                    data_len = len(raw_rtcm)
+                    
+                    sequence_id = (sequence_id + 1) % 32
+                    
+                    padded_data = bytearray(raw_rtcm)
+                    if len(padded_data) < 180:
+                        padded_data.extend([0] * (180 - data_len))
+                    
+                    # Şifresi çözülmüş tertemiz RTCM paketini uçağa yolla
+                    master.mav.gps_rtcm_data_send(
+                        (sequence_id << 3), 
+                        data_len,           
+                        list(padded_data)   
+                    )
+                    
+                    print(f"Havadaki Mesh'ten {data_len} Byte GERÇEK RTK alındı ve Uçağa basıldı!")
+            except Exception as e:
+                pass # Bozuk veya alakasız paketleri sessizce yut
 
         # Cube Orange Durumunu Oku
         msg = master.recv_match(type='GPS_RAW_INT', blocking=False)
