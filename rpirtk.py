@@ -30,6 +30,8 @@ except Exception as e:
     exit()
 
 last_fix_type = -1
+gps1_fix = 0
+gps2_fix = 0
 sequence_id = 0
 last_status_print_time = time.time()  # 3 saniyelik periyodu tutacağımız zamanlayıcı
 
@@ -66,10 +68,13 @@ try:
                 pass 
 
         # 2. CUBE ORANGE'IN DURUMUNU OKU (Sürekli okur ama her saniye ekrana basmaz)
-        msg = master.recv_match(type='GPS_RAW_INT', blocking=False)
+        msg = master.recv_match(type=['GPS_RAW_INT', 'GPS2_RAW'], blocking=False)
         if msg:
-            last_fix_type = msg.fix_type
-
+            if msg.get_type() == 'GPS_RAW_INT':
+                gps1_fix = msg.fix_type
+            elif msg.get_type() == 'GPS2_RAW':
+                gps2_fix = msg.fix_type
+            last_fix_type = max(gps1_fix, gps2_fix)
         # 3. HER 3 SANİYEDE BİR DURUM RAPORU VER
         current_time = time.time()
         if current_time - last_status_print_time >= 3.0:
