@@ -16,6 +16,18 @@ try:
     master = mavutil.mavlink_connection(CUBE_PORT, baud=CUBE_BAUD)
     master.wait_heartbeat()
     print(f" Cube Orange Heartbeat alındı!")
+    master.mav.request_data_stream_send(
+        master.target_system,
+        master.target_component,
+        mavutil.mavlink.MAV_DATA_STREAM_POSITION, 
+        10, 1
+    )
+    master.mav.request_data_stream_send(
+        master.target_system,
+        master.target_component,
+        mavutil.mavlink.MAV_DATA_STREAM_EXTRA1, 
+        10, 1
+    )
 except Exception as e:
     print(f"Bağlantı hatası: {e}")
     exit()
