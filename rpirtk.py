@@ -16,18 +16,23 @@ try:
     master = mavutil.mavlink_connection(CUBE_PORT, baud=CUBE_BAUD)
     master.wait_heartbeat()
     print(f" Cube Orange Heartbeat alındı!")
-    master.mav.request_data_stream_send(
-        master.target_system,
-        master.target_component,
-        mavutil.mavlink.MAV_DATA_STREAM_POSITION, 
-        10, 1
+
+    # 1. GPS_RAW_INT (Mesaj ID: 24) verisini saniyede 5 kez (200.000 mikrosaniye) iste
+    master.mav.command_long_send(
+        master.target_system, master.target_component,
+        mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL, 0,
+        24, 200000, 0, 0, 0, 0, 0
     )
-    master.mav.request_data_stream_send(
-        master.target_system,
-        master.target_component,
-        mavutil.mavlink.MAV_DATA_STREAM_EXTRA1, 
-        10, 1
+    
+    # 2. GPS2_RAW (Mesaj ID: 124) verisini saniyede 5 kez iste
+    master.mav.command_long_send(
+        master.target_system, master.target_component,
+        mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL, 0,
+        124, 200000, 0, 0, 0, 0, 0
     )
+    
+    print(" GPS Veri akışı başlatıldı!")
+    
 except Exception as e:
     print(f"Bağlantı hatası: {e}")
     exit()
