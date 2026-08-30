@@ -10,21 +10,21 @@ ESP_BAUD = 921600
 CUBE_PORT = '/dev/ttyACM0'
 CUBE_BAUD = 115200
 
-print(f"Cube Orange'a bağlanılıyor ({CUBE_PORT})...")
+print(f"Cube Orange'a bağlanılıyor ({CUBE_PORT})")
 try:
     os.environ['MAVLINK20'] = '1'
     master = mavutil.mavlink_connection(CUBE_PORT, baud=CUBE_BAUD)
     master.wait_heartbeat()
-    print("-> Cube Orange Heartbeat alındı!")
+    print(f" Cube Orange Heartbeat alındı!")
 except Exception as e:
     print(f"Bağlantı hatası: {e}")
     exit()
 
-print(f"ESP32'ye bağlanılıyor ({ESP_PORT})...")
+print(f"ESP32'ye bağlanılıyor ({ESP_PORT})")
 try:
     esp_serial = serial.Serial(ESP_PORT, ESP_BAUD, timeout=0.1)
     esp_serial.reset_input_buffer()
-    print("-> ESP bağlantısı başarılı. Temiz RTK akışı bekleniyor...")
+    print(" ESP bağlantısı başarılı. RTK akışı bekleniyor")
 except Exception as e:
     print(f"ESP hatası: {e}")
     exit()
@@ -60,7 +60,7 @@ try:
                     )
                     
                     # EKRANIN KAYMASINI ÖNLEYEN SABİT SATIR YAZISI (\r ile üzerine yazar)
-                    sys.stdout.write(f"\r[AKTİF] Mesh'ten {data_len:3} Byte taze RTK uçağa basılıyor... ")
+                    sys.stdout.write(f"\r Mesh'ten {data_len:3} Byte veri drone'a gönderiliyor ")
                     sys.stdout.flush()
             except Exception as e:
                 pass 
@@ -75,9 +75,9 @@ try:
         if current_time - last_status_print_time >= 3.0:
             print("\n" + "-" * 50) # Sabit satırın altına inmek için \n
             if last_fix_type == 6:
-                print("[GÜVENLİ] CUBE ORANGE: RTK FIXED (Tam Santimetre Hassasiyeti!)")
+                print("[GÜVENLİ] CUBE ORANGE: RTK FIXED ")
             elif last_fix_type == 5:
-                print("[BEKLE] CUBE ORANGE: RTK FLOAT (Taşıyıcı Faz Hesaplanıyor...)")
+                print("[BEKLE] CUBE ORANGE: RTK FLOAT")
             elif last_fix_type == 3:
                 print("[DİKKAT] CUBE ORANGE: 3D FIX (Normal GPS)")
             elif last_fix_type == -1:
