@@ -34,14 +34,14 @@ try:
     while True:
         if base_serial.in_waiting > 0:
             # Sizin C++ kodunun MAX_LINE_BYTES=240 sınırı var. Güvenlik için 150 okuyoruz.
-            raw_rtcm_data = base_serial.read(min(base_serial.in_waiting, 150))
+            raw_rtcm_data = base_serial.read(min(base_serial.in_waiting, 120))
             
             # Veriyi C++ kodunun kılığına sok ve gönder
             mesh_packet = package_for_mesh(raw_rtcm_data)
             esp_serial.write(mesh_packet)
             
             print(f"Tripoddan {len(raw_rtcm_data)} byte okundu, Mesh şifresiyle ESP'ye basıldı.")
-            time.sleep(0.02) 
+            time.sleep(0.01) 
             
 except KeyboardInterrupt:
     print("\nİşlem durduruldu.")

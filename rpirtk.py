@@ -3,6 +3,7 @@ import time
 from pymavlink import mavutil
 import os
 import base64
+import sys
 
 ESP_PORT = '/dev/ttyUSB0'
 ESP_BAUD = 921600
@@ -30,22 +31,19 @@ except Exception as e:
 
 last_fix_type = -1
 sequence_id = 0
+last_status_print_time = time.time()  # 3 saniyelik periyodu tutacağımız zamanlayıcı
 
 print("\n--- Sistem Dinlemede ---")
 
 try:
     while True:
-        # C++ kodu veriyi satır satır (\n) yolladığı için readline kullanıyoruz
+        # 1. ESP-NOW MESH AĞINDAN VERİ OKU VE UÇAĞA BAS
         if esp_serial.in_waiting > 0:
             try:
                 line = esp_serial.readline().decode('ascii', errors='ignore').strip()
                 
-                # GELEN VERİ BİZİM RTK VERİMİZ Mİ YOKSA DRONE TELEMETRİSİ Mİ?
                 if line.startswith("RTK:"):
-                    # "RTK:" başlığını ve "*xxxxxxxx" şifresini at, ortadaki veriyi al
                     b64_part = line.split("*")[0][4:]
-                    
-                    # Metni tekrar orjinal RAW RTCM bytelarına çevir
                     raw_rtcm = base64.b64decode(b64_part)
                     data_len = len(raw_rtcm)
                     
@@ -55,36 +53,47 @@ try:
                     if len(padded_data) < 180:
                         padded_data.extend([0] * (180 - data_len))
                     
-                    # Şifresi çözülmüş tertemiz RTCM paketini uçağa yolla
                     master.mav.gps_rtcm_data_send(
                         (sequence_id << 3), 
                         data_len,           
                         list(padded_data)   
                     )
                     
-                    print(f"Havadaki Mesh'ten {data_len} Byte GERÇEK RTK alındı ve Uçağa basıldı!")
+                    # EKRANIN KAYMASINI ÖNLEYEN SABİT SATIR YAZISI (\r ile üzerine yazar)
+                    sys.stdout.write(f"\r[AKTİF] Mesh'ten {data_len:3} Byte taze RTK uçağa basılıyor... ")
+                    sys.stdout.flush()
             except Exception as e:
-                pass # Bozuk veya alakasız paketleri sessizce yut
+                pass 
 
-        # Cube Orange Durumunu Oku
+        # 2. CUBE ORANGE'IN DURUMUNU OKU (Sürekli okur ama her saniye ekrana basmaz)
         msg = master.recv_match(type='GPS_RAW_INT', blocking=False)
         if msg:
-            current_fix = msg.fix_type
-            if current_fix != last_fix_type:
-                last_fix_type = current_fix
-                print("-" * 50)
-                if current_fix == 6:
-                    print("[GÜVENLİ] CUBE ORANGE: RTK FIXED")
-                elif current_fix == 5:
-                    print("[BEKLE] CUBE ORANGE: RTK FLOAT")
-                elif current_fix == 3:
-                    print("[DİKKAT] CUBE ORANGE: 3D FIX")
-                print("-" * 50)
-                
+            last_fix_type = msg.fix_type
+
+        # 3. HER 3 SANİYEDE BİR DURUM RAPORU VER
+        current_time = time.time()
+        if current_time - last_status_print_time >= 3.0:
+            print("\n" + "-" * 50) # Sabit satırın altına inmek için \n
+            if last_fix_type == 6:
+                print("[GÜVENLİ] CUBE ORANGE: RTK FIXED (Tam Santimetre Hassasiyeti!)")
+            elif last_fix_type == 5:
+                print("[BEKLE] CUBE ORANGE: RTK FLOAT (Taşıyıcı Faz Hesaplanıyor...)")
+            elif last_fix_type == 3:
+                print("[DİKKAT] CUBE ORANGE: 3D FIX (Normal GPS)")
+            elif last_fix_type == -1:
+                print("[YÜKLENİYOR] CUBE ORANGE: GPS Verisi Bekleniyor...")
+            else:
+                print(f"[UYARI] CUBE ORANGE: GPS Sinyali Düşük/Yok (Kod: {last_fix_type})")
+            print("-" * 50)
+            
+            # Zamanlayıcıyı sıfırla
+            last_status_print_time = current_time
+
         time.sleep(0.005)
 
 except KeyboardInterrupt:
     pass
 finally:
+    print("\n\nİşlem kullanıcı tarafından durduruldu.")
     esp_serial.close()
     master.close()
